@@ -1,174 +1,141 @@
-# 실전 RAG 강의 교재
+# PDF 파일 기반 RAG 고급 기법
 
-삼성전자 실적 발표 PDF를 활용한 실전 RAG 강의용 주피터 노트북입니다.
+IBK 증권보고서(삼성전자/SK하이닉스)를 활용한 실전 RAG 파이프라인 강의 교재입니다.
+2시간 라이브 강의용으로 설계되었으며, 슬라이드(이론) + 노트북(실습) 구성입니다.
 
 ## 프로젝트 구조
 
 ```
 rag_lecture/
-├── requirements.txt                    # 필수 패키지 정의
-├── 2025_4Q_conference_kor.pdf         # 삼성전자 2025년 4분기 실적 발표 자료
-├── rag_lecture_part1.ipynb            # 환경 구축 및 PDF 데이터 구조화
-├── rag_lecture_part2.ipynb            # 검색기(Retriever) 성능 비교 실습
-├── rag_lecture_part3.ipynb            # 리랭커(Reranking) 및 압축 적용
-├── rag_lecture_part4.ipynb            # 최종 성능 평가 및 시각화
-└── README.md                           # 이 파일
+├── rag_lecture_part1_f.ipynb              # Part 1~2: 데이터/평가셋 + PDF 추출 비교 + Base RAG
+├── rag_lecture_part2_f.ipynb              # Part 3~5: 하이브리드 검색 + Multi-Query + Reranking
+├── IBK 증권보고서_삼성전자_SK하이닉스.pdf     # 실험 데이터 (26페이지)
+├── PDF 파일 기반 RAG 고급 기법.pdf          # 강의 슬라이드 (8장)
+├── PDF 파일 기반 RAG 고급 기법.pptx         # 강의 슬라이드 원본
+├── pyproject.toml                         # Poetry 의존성 정의
+├── poetry.lock                            # Poetry 잠금 파일
+├── requirements.txt                       # pip 의존성 정의
+├── splits_v2.pkl                          # 3종 추출본 캐시 (Part 1에서 생성)
+└── trash/                                 # 이전 버전 파일
 ```
+
+## 강의 흐름 (총 120분)
+
+| 구간 | 내용 | 슬라이드 | 노트북 | 시간 |
+|------|------|---------|--------|------|
+| 오프닝 | RAG 개요 + 왜 필요한가 | 1장 | - | 10분 |
+| Part 1 | 데이터 소개 + 평가셋 설계 (12개 질문) | - | part1_f | 10분 |
+| Part 2 | PDF 추출 3종 비교 (PyMuPDF / 4LLM / VLM) | 2장 | part1_f | 25분 |
+| Chunking | 청킹 파라미터 실험 | 3장 | part1_f | 10분 |
+| 쉬는 시간 | - | - | - | 5분 |
+| Part 3 | BM25 + Ensemble (하이브리드 검색) | 4장 | part2_f | 20분 |
+| Part 4 | Multi-Query Retrieval (질문 확장) | 5장 | part2_f | 15분 |
+| Part 5 | Cross-Encoder Reranking (정밀 재정렬) | 6장 | part2_f | 20분 |
+| 마무리 | 체크리스트 + Q&A | 7~8장 | - | 5분 |
 
 ## 강의 내용
 
-### Part 1: 환경 구축 및 PDF 데이터 구조화
-- **PyMuPDFLoader**: PDF에서 텍스트와 표를 정확하게 추출
-- **RecursiveCharacterTextSplitter**: 최적의 청크 크기와 중복 설정
-- **키워드 보존**: DS, HBM4, 영업이익 같은 중요 용어가 청크 내 유지
-- **데이터 분석**: 청크 길이 분포, 키워드 빈도 시각화
+### Part 1: 데이터 & 평가셋 (`part1_f.ipynb`)
+- IBK 증권보고서 PDF 구조 확인 (26페이지, 표 다수 포함)
+- 재무/투자의견/비교 카테고리 12개 질문 + 정답 설계
+- 평가 지표: 정확도(exact/partial/fail), 근거성(grounded), 속도
 
-### Part 2: 검색기(Retriever) 성능 비교 실습
-- **FAISS VectorStoreRetriever**: 벡터 기반 의미 검색 구현
-- **BM25Retriever**: 키워드 기반 정확 검색 구현
-- **EnsembleRetriever**: 두 방법을 결합한 하이브리드 검색
-- **Multi-Query Retrieval**: 질문 확장을 통한 검색 성능 향상
-- **성능 비교**: 검색기별 결과 비교 및 시각화
+### Part 2: PDF 추출 방식 비교 + Base RAG (`part1_f.ipynb`)
+- **PyMuPDFLoader**: Raw 텍스트 추출 (빠르지만 표 구조 손실)
+- **PyMuPDF4LLMLoader**: Markdown 변환 (구조 보존 시도)
+- **VLM (GPT-4o)**: 이미지 기반 시각적 해석 (표/차트 정확도 최고)
+- 3종 추출본으로 동일 조건 FAISS RAG → 12개 질문 정확도 비교
+- Chunking 파라미터 실험 (chunk_size: 300 / 700 / 1500)
 
-### Part 3: 리랭커(Reranking) 및 압축 적용
-- **BAAI/bge-reranker-v2-m3**: 질문-문서 관련성 재평가
-- **MMR(Maximal Marginal Relevance)**: 결과의 다양성 확보
-- **Cross-Encoder Rerank**: 정밀한 관련성 점수 산출
-- **Contextual Compression**: 불필요한 내용 필터링
-- **리랭킹 전후 비교**: 성능 향상 시각화
+### Part 3: 하이브리드 검색 (`part2_f.ipynb`)
+- **FAISS**: 의미(semantic) 기반 벡터 검색
+- **BM25**: 키워드 빈도 기반 검색 (TF-IDF 개선)
+- **EnsembleRetriever + RRF**: 두 검색 결과를 순위 기반 융합
+- 동일 질문에 대한 검색 결과 overlap 분석
 
-### Part 4: 최종 성능 평가 및 시각화
-- **Basic RAG vs Advanced RAG**: 성능 비교 평가
-- **평가 메트릭**: 답변 정확도, 관련 문장 포함, 응답 시간
-- **기술 단계별 성능 시각화**: matplotlib으로 성능 향상 폭 그래프
-- **실무 중요성 요약**: 비용 절감, 환각 방지, 응답 품질
+### Part 4: Multi-Query Retrieval (`part2_f.ipynb`)
+- 표현 불일치(Vocabulary Mismatch) 문제와 해결
+- LLM으로 원질문을 3가지 관점으로 변형 → 합집합 검색
+- 기본 Retriever vs Multi-Query Retriever 검색 범위 비교
 
-## 설치 방법
-
-```bash
-# 가상환경 생성 (선택사항)
-python -m venv venv
-source venv/bin/activate  # Mac/Linux
-# venv\Scripts\activate   # Windows
-
-# 패키지 설치
-pip install -r requirements.txt
-```
-
-## 사용 방법
-
-### Jupyter Notebook 실행
-
-```bash
-# Jupyter Notebook 시작
-jupyter notebook
-
-# 브라우저에서 각 노트북 파일(.ipynb)을 순서대로 실행
-```
-
-### 실행 순서
-
-1. **rag_lecture_part1.ipynb**
-   - 환경 설정 및 PDF 로드
-   - 텍스트 분할 및 데이터 분석
-
-2. **rag_lecture_part2.ipynb**
-   - 검색기 구현 (FAISS, BM25, Ensemble)
-   - 성능 비교 및 테스트
-
-3. **rag_lecture_part3.ipynb**
-   - 리랭커 적용
-   - Contextual Compression 구현
-
-4. **rag_lecture_part4.ipynb**
-   - 최종 성능 평가
-   - 시각화 및 요약
+### Part 5: Cross-Encoder Reranking (`part2_f.ipynb`)
+- Bi-Encoder(1차 검색) vs Cross-Encoder(2차 정밀 재정렬) 구조 비교
+- **bge-reranker-v2-m3**: Rerank 전후 순위 변동 시각화
+- top_n 파라미터와 정밀도-재현율 Trade-off
+- CPU 기준 Rerank 소요 시간 실측
 
 ## 데이터셋
 
-### 2025_4Q_conference_kor.pdf
-- **내용**: 삼성전자 2025년 4분기 실적 발표 자료 (15페이지)
-- **특징**: 복잡한 표 구조, 다양한 수치 데이터
-- **주요 데이터**:
-  - DS 부문 영업이익: 16.4조원
-  - 메모리 매출: 37.1조원
-  - 전사 영업이익: 20.1조원 (4분기), 43.6조원 (연간)
-  - HBM4 양산 출하 예정
+### IBK 증권보고서_삼성전자_SK하이닉스.pdf
+- **내용**: IBK투자증권 삼성전자·SK하이닉스 실적 리포트
+- **페이지**: 26페이지
+- **특징**: 분기별 실적 표, 사업부별 매출/영업이익, 투자의견 등
+- **주요 수치**:
+  - 삼성전자 4Q25 매출액: 93.8조원, 영업이익: 20.1조원
+  - SK하이닉스 4Q25 영업이익: 19.17조원
+  - 삼성전자 목표주가: 240,000원
 
-## 학습 포인트
+## 설치 방법
 
-### 실무에서 왜 중요할까요?
+### Poetry (권장)
 
-#### 비용 절감 (Cost Reduction)
-- **Contextual Compression**: 불필요한 내용 제거 → 30-50% 비용 절감
-- **정확한 검색**: 관련성 높은 문서만 전달 → LLM 입력 최소화
+```bash
+# Poetry 설치 (없는 경우)
+curl -sSL https://install.python-poetry.org | python3 -
 
-#### 환각 방지 (Hallucination Reduction)
-- **Reranking**: 관련성 높은 문서만 선택 → 정확한 정보 전달
-- **MMR**: 다양한 관점의 문서 선택 → 편향 감소
+# 의존성 설치
+poetry install
 
-#### 응답 품질 향상 (Response Quality Improvement)
-- **Ensemble Retrieval**: FAISS + BM25 → 의미 + 키워드 검색
-- **Multi-Query**: 질문 확장 → 다양한 관점 검색
-
-## 취준생을 위한 실무 팁
-
-### 면접 질문 대비
-
-**"RAG 성능을 개선한 경험이 있나요?"**
-```
-답변: "Ensemble Retrieval로 의미+키워드 검색을 결합하여
-       검색 정확도를 30% 향상시켰습니다."
+# Jupyter 커널 등록
+poetry add ipykernel
+poetry run python -m ipykernel install --user --name rag-lecture --display-name "RAG Lecture"
 ```
 
-**"RAG에서 비용을 절감한 경험이 있나요?"**
-```
-답변: "Contextual Compression을 적용하여 불필요한 내용을 제거하고
-       API 비용을 40% 절감했습니다."
-```
+### pip
 
-**"환각 현상을 어떻게 방지했나요?"**
-```
-답변: "Reranking과 MMR을 활용하여 관련성 높고
-       다양한 관점의 문서를 LLM에 전달하여 환각 현상을 줄였습니다."
+```bash
+python -m venv venv
+source venv/bin/activate  # Mac/Linux
+
+pip install -r requirements.txt
+python -m ipykernel install --user --name rag-lecture --display-name "RAG Lecture"
 ```
 
-### 포트폴리오 구성
+### 환경 변수
 
-**프로젝트**: "Advanced RAG 시스템 개발"
+`.env` 파일에 OpenAI API 키를 설정합니다:
 
-**사용 기술**:
-- LangChain, FAISS, BM25, Reranking, Compression
-- BAAI/bge-reranker-v2-m3, MMR 알고리즘
+```
+OPENAI_API_KEY=sk-...
+```
 
-**성과**:
-- 검색 정확도 30% 향상
-- API 비용 40% 절감
-- 환각 현상 50% 감소
+## 실행 순서
+
+1. **rag_lecture_part1_f.ipynb** 를 순서대로 실행
+   - Part 1: PDF 확인 + 평가셋 생성
+   - Part 2: 3종 추출 → 청킹 → Base RAG 비교
+   - `splits_v2.pkl` 저장 (Part 3~5에서 사용)
+
+2. **rag_lecture_part2_f.ipynb** 를 순서대로 실행
+   - Part 3: FAISS vs BM25 vs Ensemble 비교
+   - Part 4: Multi-Query Retrieval 데모
+   - Part 5: Cross-Encoder Reranking 데모
 
 ## 기술 스택
 
 | 분야 | 기술 |
 |------|------|
-| 문서 로딩 | PyMuPDFLoader |
+| PDF 추출 | PyMuPDFLoader, PyMuPDF4LLMLoader, VLM (GPT-4o) |
 | 텍스트 분할 | RecursiveCharacterTextSplitter |
+| 임베딩 | BAAI/bge-m3 (HuggingFace) |
 | 벡터 검색 | FAISS |
 | 키워드 검색 | BM25 |
-| 하이브리드 검색 | Ensemble Retriever |
-| 리랭킹 | BAAI/bge-reranker-v2-m3 |
-| 다양성 확보 | MMR (Maximal Marginal Relevance) |
-| 압축 | Contextual Compression |
-| 임베딩 | HuggingFace Embeddings |
-| 시각화 | Matplotlib, Seaborn |
+| 하이브리드 검색 | EnsembleRetriever (RRF) |
+| 질문 확장 | MultiQueryRetriever |
+| 리랭킹 | BAAI/bge-reranker-v2-m3 (Cross-Encoder) |
+| LLM | GPT-4o (ChatOpenAI) |
+| 의존성 관리 | Poetry / pip |
 
 ## 라이선스
 
 이 교재는 교육 목적으로 제작되었습니다. 자유롭게 사용하실 수 있습니다.
-
-## 문의
-
-질문이나 피드백이 있으시면 언제든지 연락해 주세요.
-
----
-
-**Happy RAGging! 🚀**
